@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>果了个果：刀锋果园</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Nunito:wght@700;900&display=swap');
+
+        :root {
+            --tile-w: 54px;
+            --tile-h: 62px;
+        }
+
+        @media (min-width: 400px) {
+            :root {
+                --tile-w: 60px;
+                --tile-h: 68px;
+            }
+        }
+
+        body {
+            font-family: 'Nunito', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 25%, #d9f99d 0%, #86efac 55%, #22c55e 100%);
+            touch-action: manipulation;
+        }
+
+        .fun-title {
+            font-family: 'ZCOOL KuaiLe', cursive, sans-serif;
+            text-shadow: 0 3px 0 #14532d, 0 6px 12px rgba(0,0,0,0.35);
+        }
+
+        /* 草地背景装饰纹理 */
+        .grass-pattern {
+            background-image: 
+                radial-gradient(rgba(255,255,255,0.22) 2px, transparent 2px),
+                radial-gradient(rgba(21,128,61,0.12) 3px, transparent 3px);
+            background-size: 40px 40px;
+            background-position: 0 0, 20px 20px;
+        }
+
+        /* 3D立体麻将风水果卡牌 */
+        .fruit-tile {
+            position: absolute;
+            width: var(--tile-w);
+            height: var(--tile-h);
+            border-radius: 13px;
+            background: linear-gradient(180deg, #ffffff 0%, #fef9c3 100%);
+            border: 2px solid #e5e7eb;
+            box-shadow: 
+                0 6px 0 #15803d,
+                0 8px 10px rgba(0, 0, 0, 0.28),
+                inset 0 2px 1px rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), 
+                        left 0.28s cubic-bezier(0.25, 1, 0.5, 1), 
+                        top 0.28s cubic-bezier(0.25, 1, 0.5, 1), 
+                        filter 0.2s ease,
+                        box-shadow 0.2s ease;
+            will-change: transform, left, top, filter;
+        }
+
+        .fruit-tile::after {
+            content: '';
+            position: absolute;
+            inset: 3px;
+            border-radius: 9px;
+            border: 1px solid rgba(255,255,255,0.7);
+            pointer-events: none;
+        }
+
+        .fruit-tile.unlocked:hover {
+            transform: translateY(-4px) scale(1.04);
+            box-shadow: 
+                0 9px 0 #15803d,
+                0 14px 18px rgba(0, 0, 0, 0.32),
+                inset 0 2px 1px rgba(255, 255, 255, 1);
+        }
+
+        .fruit-tile.unlocked:active {
+            transform: translateY(3px) scale(0.96);
+            box-shadow: 
+                0 2px 0 #15803d,
+                0 4px 6px rgba(0, 0, 0, 0.25);
+        }
+
+        /* 被压住的卡牌置灰遮罩 */
+        .fruit-tile.locked {
+            cursor: not-allowed;
+            filter: brightness(0.46) contrast(0.92) saturate(0.65);
+            box-shadow: 
+                0 5px 0 #052e16,
+                0 6px 8px rgba(0, 0, 0, 0.35);
+        }
+
+        /* 盲盒深渊暗牌（只露顶牌，底下全黑问号） */
+        .fruit-tile.mystery-hidden .fruit-icon {
+            opacity: 0;
+        }
+        .fruit-tile.mystery-hidden::before {
+            content: '?';
+            font-weight: 900;
+            font-size: 1.5rem;
+            color: rgba(255,255,255,0.45);
+            position: absolute;
+        }
+
+        /* 卡槽内的卡牌样式 */
+        .slot-tile {
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            width: calc(var(--tile-w) * 0.84) !important;
+            height: calc(var(--tile-h) * 0.84) !important;
+            box-shadow: 0 4px 0 #92400e, 0 5px 8px rgba(0,0,0,0.3) !important;
+            cursor: default !important;
+            animation: dropInSlot 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 临时砧板区（移出道具）卡牌 */
+        .holding-tile {
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            width: calc(var(--tile-w) * 0.82) !important;
+            height: calc(var(--tile-h) * 0.82) !important;
+            box-shadow: 0 4px 0 #b45309, 0 6px 10px rgba(0,0,0,0.28) !important;
+            animation: popScale 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes dropInSlot {
+            0% { transform: scale(1.25) translateY(-22px); }
+            100% { transform: scale(1) translateY(0); }
+        }
+
+        @keyframes popScale {
+            0% { transform: scale(0.3) rotate(-15deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+
+        /* 旋风洗牌动画 */
+        @keyframes bladeSpin {
+            0% { transform: scale(1) rotate(0deg); }
+            45% { transform: scale(0.4) rotate(380deg); filter: brightness(1.6); }
+            100% { transform: scale(1) rotate(720deg); }
+        }
+
+        .shuffling {
+            animation: bladeSpin 0.55s cubic-bezier(0.45, 0, 0.55, 1);
+        }
+
+        /* 刀光特效 */
+        .blade-slash {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9999;
+            height: 6px;
+            background: linear-gradient(90deg, transparent, #ffffff, #38bdf8, #ffffff, transparent);
+            box-shadow: 0 0 18px #38bdf8, 0 0 32px #ffffff;
+            border-radius: 999px;
+            transform-origin: left center;
+            animation: slashAnim 0.28s ease-out forwards;
+        }
+
+        @keyframes slashAnim {
+            0% { transform: scaleX(0) rotate(var(--angle, -25deg)); opacity: 1; }
+            60% { transform: scaleX(1) rotate(var(--angle, -25deg)); opacity: 1; }
+            100% { transform: scaleX(1.1) rotate(var(--angle, -25deg)); opacity: 0; }
+        }
+
+        /* 汁水飞溅粒子 */
+        .juice-particle {
+            position: fixed;
+            pointer-events: none;
+            z-index: 9998;
+            border-radius: 50%;
+            animation: juiceSplash 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes juiceSplash {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0.15); opacity: 0; }
+        }
+
+        /* 木质砧板卡槽 */
+        .wood-dock {
+            background: linear-gradient(180deg, #d97706 0%, #b45309 45%, #78350f 100%);
+            border: 4px solid #fef3c7;
+            box-shadow: 
+                0 8px 0 #451a03,
+                0 14px 25px rgba(0,0,0,0.45),
+                inset 0 3px 6px rgba(255,255,255,0.35);
+        }
+
+        .wood-slot-cell {
+            background: rgba(69, 26, 3, 0.42);
+            box-shadow: inset 0 3px 5px rgba(0,0,0,0.55), 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        /* 刀具按钮立绘风 */
+        .knife-btn {
+            background: linear-gradient(180deg, #fef08a 0%, #f59e0b 100%);
+            border: 3px solid #ffffff;
+            box-shadow: 0 6px 0 #b45309, 0 8px 15px rgba(0,0,0,0.3);
+            transition: all 0.12s ease;
+        }
+        .knife-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 0 #b45309, 0 12px 18px rgba(0,0,0,0.35);
+        }
+        .knife-btn:active:not(:disabled) {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #b45309, 0 4px 8px rgba(0,0,0,0.25);
+        }
+        .knife-btn:disabled {
+            filter: grayscale(0.85) brightness(0.75);
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between items-center grass-pattern select-none overflow-hidden">
+
+    <!-- 顶部状态与关卡控制栏 -->
+    <header class="w-full max-w-md px-3 pt-2.5 pb-1 flex flex-col gap-1.5 z-30">
+        <div class="flex items-center justify-between bg-green-900/80 backdrop-blur-md text-white px-3 py-2 rounded-2xl border-2 border-lime-300/60 shadow-lg">
+            <!-- 关卡切换器 -->
+            <div class="flex items-center gap-1.5">
+                <span class="bg-amber-400 text-amber-950 font-black text-xs px-2 py-1 rounded-lg shadow">跳关体验</span>
+                <select id="levelSelect" class="bg-green-950/90 text-lime-200 font-bold text-xs sm:text-sm px-2 py-1 rounded-lg border border-lime-400/50 focus:outline-none cursor-pointer">
+                    <option value="1">第1关：果园初体验 (新手秒过)</option>
+                    <option value="2">第2关：双塔迷阵 (初探盲盒)</option>
+                    <option value="3">第3关：回字果盘 (步步为营)</option>
+                    <option value="4">第4关：深渊果篮 (硬核错位)</option>
+                    <option value="5">第5关：地狱果王 (通关率0.01%)</option>
+                </select>
+            </div>
+
+            <!-- 音乐与重开按钮 -->
+            <div class="flex items-center gap-1.5">
+                <button id="musicToggleBtn" title="开关背景音乐" class="bg-lime-500 hover:bg-lime-400 active:translate-y-0.5 text-green-950 font-black text-xs px-2.5 py-1.5 rounded-xl border border-white shadow flex items-center gap-1">
+                    <span id="musicIcon">🎵</span>
+                    <span id="musicText" class="hidden sm:inline">音乐</span>
+                </button>
+                <button id="restartTopBtn" title="重开本关" class="bg-rose-500 hover:bg-rose-400 active:translate-y-0.5 text-white font-black text-xs px-2.5 py-1.5 rounded-xl border border-white shadow">
+                    🔄 重开
+                </button>
+            </div>
+        </div>
+
+        <!-- 关卡副标题与剩余卡牌计数 -->
+        <div class="flex items-center justify-between px-2">
+            <div class="flex items-center gap-2">
+                <h1 id="levelTitleBadge" class="fun-title text-xl sm:text-2xl text-white tracking-wider">第1关：果园初体验</h1>
+                <span id="levelDiffTag" class="text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-600 text-white border border-white/60 shadow">轻松热身</span>
+            </div>
+            <div class="bg-black/35 backdrop-blur-sm text-lime-200 text-xs font-extrabold px-3 py-1 rounded-full border border-white/25">
+                剩余水果: <span id="remainCount" class="text-amber-300 text-sm font-black">18</span> 张
+            </div>
+        </div>
+    </header>
+
+    <!-- 中央棋盘 + 临时砧板扩展区 -->
+    <main class="relative flex-1 w-full max-w-md flex flex-col items-center justify-center overflow-visible">
+        
+        <!-- 顶部浮动：水果刀切出的临时砧板区（最多可叠放多张移出的牌） -->
+        <div class="w-full px-4 mb-1 z-20 flex flex-col items-center">
+            <div class="text-[11px] font-bold text-green-950/80 mb-0.5 flex items-center gap-1">
+                <span>🔪 临时砧板区 (水果刀切出的卡牌，随时可点选)</span>
+            </div>
+            <div id="holdingArea" class="min-h-[58px] w-full max-w-[360px] bg-amber-100/75 backdrop-blur-sm rounded-2xl border-2 border-dashed border-amber-700/60 px-2 py-1 flex items-center justify-center gap-1.5 flex-wrap shadow-inner">
+                <span id="holdingEmptyHint" class="text-xs text-amber-900/50 font-bold">使用「水果刀」可将卡槽前3张牌切到此处暂存</span>
+            </div>
+        </div>
+
+        <!-- 核心堆叠棋盘容器 -->
+        <div id="boardWrapper" class="relative w-[340px] sm:w-[376px] h-[350px] sm:h-[385px] flex items-center justify-center">
+            <!-- 棋盘底座光晕 -->
+            <div class="absolute inset-3 rounded-3xl bg-green-950/15 border-2 border-white/25 pointer-events-none"></div>
+            <div id="boardContainer" class="relative w-full h-full"></div>
+        </div>
+    </main>
+
+    <!-- 底部：7格木质砧板卡槽 + 三大刀具道具栏 -->
+    <footer class="w-full max-w-md px-2.5 pb-3 pt-1 flex flex-col items-center gap-2.5 z-30">
+        
+        <!-- 7格木质卡槽 -->
+        <div class="relative w-full wood-dock rounded-2xl p-2 flex flex-col items-center">
+            <div class="absolute -top-3 right-3 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full border border-white shadow">
+                满7格未消除即失败 (<span id="slotUsageText">0/7</span>)
+            </div>
+            <div id="slotContainer" class="w-full grid grid-cols-7 gap-1 sm:gap-1.5 items-center justify-items-center min-h-[60px]">
+                <!-- 7个底格背景槽 -->
+                <div class="wood-slot-cell w-full h-[56px] rounded-xl"></div>
+                <div class="wood-slot-cell w-full h-[56px] rounded-xl"></div>
+                <div class="wood-slot-cell w-full h-[56px] rounded-xl"></div>
+                <div class="wood-slot-cell w-full h-[56px] rounded-xl"></div>
+                <div class="wood-slot-cell w-full h-[56px] rounded-xl"></div>
+                <div class="wood-slot-cell w-full h-[56px] rounded-xl"></div>
+                <div class="wood-slot-cell w-full h-[56px] rounded-xl"></div>
+            </div>
+            <!-- 实际渲染在卡槽上的卡牌浮层 -->
+            <div id="slotTilesLayer" class="absolute inset-2 grid grid-cols-7 gap-1 sm:gap-1.5 items-center justify-items-center pointer-events-none"></div>
+        </div>
+
+        <!-- 三把定制刀具道具栏 -->
+        <div class="w-full grid grid-cols-3 gap-2.5 px-1">
+            <!-- 道具1：水果刀（移出前3张） -->
+            <button id="toolParingBtn" class="knife-btn relative rounded-2xl py-2 px-2 flex items-center gap-2">
+                <div class="w-10 h-10 rounded-xl bg-amber-950/15 flex items-center justify-center shrink-0" id="iconParing"></div>
+                <div class="flex flex-col items-start text-left leading-tight">
+                    <span class="font-black text-amber-950 text-xs sm:text-sm">水果刀</span>
+                    <span class="text-[10px] text-amber-900 font-bold">切出前3张</span>
+                </div>
+                <span id="badgeParing" class="absolute -top-2 -right-1.5 bg-emerald-600 text-white font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow">2</span>
+            </button>
+
+            <!-- 道具2：主厨菜刀（撤回最近1张） -->
+            <button id="toolCleaverBtn" class="knife-btn relative rounded-2xl py-2 px-2 flex items-center gap-2">
+                <div class="w-10 h-10 rounded-xl bg-amber-950/15 flex items-center justify-center shrink-0" id="iconCleaver"></div>
+                <div class="flex flex-col items-start text-left leading-tight">
+                    <span class="font-black text-amber-950 text-xs sm:text-sm">主厨菜刀</span>
+                    <span class="text-[10px] text-amber-900 font-bold">挑回上1张</span>
+                </div>
+                <span id="badgeCleaver" class="absolute -top-2 -right-1.5 bg-emerald-600 text-white font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow">2</span>
+            </button>
+
+            <!-- 道具3：忍者双刀（全场乱切洗牌） -->
+            <button id="toolKatanaBtn" class="knife-btn relative rounded-2xl py-2 px-2 flex items-center gap-2">
+                <div class="w-10 h-10 rounded-xl bg-amber-950/15 flex items-center justify-center shrink-0" id="iconKatana"></div>
+                <div class="flex flex-col items-start text-left leading-tight">
+                    <span class="font-black text-amber-950 text-xs sm:text-sm">忍者双刀</span>
+                    <span class="text-[10px] text-amber-900 font-bold">旋风洗牌</span>
+                </div>
+                <span id="badgeKatana" class="absolute -top-2 -right-1.5 bg-emerald-600 text-white font-black text-xs w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow">2</span>
+            </button>
+        </div>
+    </footer>
+
+    <!-- 顶部轻提示 Toast -->
+    <div id="toastBox" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-200 bg-gray-900/90 text-white font-bold text-xs sm:text-sm px-4 py-2 rounded-full border border-white/30 shadow-xl">
+        提示信息
+    </div>
+
+    <!-- 结算与复活弹窗 Modal -->
+    <div id="resultModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-gradient-to-b from-amber-50 to-amber-100 w-full max-w-sm rounded-3xl border-4 border-amber-500 shadow-2xl p-6 flex flex-col items-center text-center animate-[popScale_0.25s_ease-out]">
+            <div id="modalEmoji" class="text-6xl mb-2">🍉</div>
+            <h2 id="modalTitle" class="fun-title text-3xl text-amber-900 mb-2">过关啦！</h2>
+            <p id="modalDesc" class="text-sm text-amber-950/80 font-bold mb-5 leading-relaxed">
+                刀法精湛！所有水果已被完美切盘！
+            </p>
+            <div class="w-full flex flex-col gap-2.5">
+                <button id="modalPrimaryBtn" class="w-full py-3 rounded-2xl bg-gradient-to-b from-emerald-400 to-emerald-600 text-white font-black text-base border-2 border-white shadow-[0_5px_0_#065f46] active:translate-y-1">
+                    进入下一关
+                </button>
+                <button id="modalReviveBtn" class="w-full py-3 rounded-2xl bg-gradient-to-b from-amber-400 to-amber-600 text-amber-950 font-black text-base border-2 border-white shadow-[0_5px_0_#92400e] active:translate-y-1 hidden">
+                    🔪 磨刀复活（清空前3格 + 送全套刀具）
+                </button>
+                <button id="modalSecondaryBtn" class="w-full py-2.5 rounded-2xl bg-stone-200 hover:bg-stone-300 text-stone-700 font-extrabold text-sm">
+                    重新挑战本关
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**************************************************************
+         * 1. 五种定制高清水果 SVG 与 三把刀具 SVG 图标定义
+         **************************************************************/
+        const FRUITS = [
+            {
+                id: 'apple',
+                name: '红富士苹果',
+                juiceColor: '#ef4444',
+                bgTint: 'linear-gradient(180deg, #fff5f5 0%, #fee2e2 100%)',
+                svg: `<svg viewBox="0 0 64 64" class="w-10 h-10 sm:w-11 sm:h-11 fruit-icon drop-shadow">
+                    <path d="M32 15 C26 15 29 7 35 6" stroke="#78350f" stroke-width="4" stroke-linecap="round" fill="none"/>
+                    <path d="M34 11 C42 6 49 11 45 17 C41 21 34 16 34 11 Z" fill="#22c55e" stroke="#15803d" stroke-width="1.5"/>
+                    <path d="M32 16 C21 14 10 22 11 36 C12 50 22 58 29 56 C31 55 33 55 35 56 C42 58 52 50 53 36 C54 22 43 14 32 16 Z" fill="#ef4444" stroke="#991b1b" stroke-width="2.2"/>
+                    <path d="M18 26 C15 32 16 40 20 45" stroke="#fca5a5" stroke-width="3.2" stroke-linecap="round" fill="none" opacity="0.8"/>
+                    <circle cx="42" cy="26" r="2.5" fill="#ffffff" opacity="0.65"/>
+                </svg>`
+            },
+            {
+                id: 'banana',
+                name: '黄金香蕉',
+                juiceColor: '#facc15',
+                bgTint: 'linear-gradient(180deg, #fefce8 0%, #fef08a 100%)',
+                svg: `<svg viewBox="0 0 64 64" class="w-10 h-10 sm:w-11 sm:h-11 fruit-icon drop-shadow">
+                    <path d="M47 11 C51 18 52 33 41 45 C30 56 15 55 10 49 C19 49 29 44 36 34 C43 24 44 15 43 11 Z" fill="#facc15" stroke="#a16207" stroke-width="2.2" stroke-linejoin="round"/>
+                    <path d="M51 15 C56 23 55 39 43 50 C31 60 17 57 12 51 C22 52 33 46 40 36 C47 26 48 18 47 14 Z" fill="#eab308" stroke="#a16207" stroke-width="2" stroke-linejoin="round"/>
+                    <path d="M43 9 L51 14" stroke="#713f12" stroke-width="4.5" stroke-linecap="round"/>
+                    <path d="M39 24 C36 32 29 39 21 43" stroke="#fef9c3" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+                </svg>`
+            },
+            {
+                id: 'watermelon',
+                name: '脆甜西瓜',
+                juiceColor: '#f43f5e',
+                bgTint: 'linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%)',
+                svg: `<svg viewBox="0 0 64 64" class="w-10 h-10 sm:w-11 sm:h-11 fruit-icon drop-shadow">
+                    <path d="M8 26 C10 46 22 56 32 56 C42 56 54 46 56 26 Z" fill="#16a34a" stroke="#14532d" stroke-width="2.2" stroke-linejoin="round"/>
+                    <path d="M12 26 C14 42 23 51 32 51 C41 51 50 42 52 26 Z" fill="#bbf7d0"/>
+                    <path d="M14 26 C16 40 24 48 32 48 C40 48 48 40 50 26 Z" fill="#f43f5e"/>
+                    <ellipse cx="24" cy="33" rx="1.6" ry="2.6" fill="#1f2937" transform="rotate(15 24 33)"/>
+                    <ellipse cx="32" cy="38" rx="1.6" ry="2.6" fill="#1f2937"/>
+                    <ellipse cx="40" cy="33" rx="1.6" ry="2.6" fill="#1f2937" transform="rotate(-15 40 33)"/>
+                    <ellipse cx="28" cy="43" rx="1.5" ry="2.2" fill="#1f2937"/>
+                    <ellipse cx="36" cy="43" rx="1.5" ry="2.2" fill="#1f2937"/>
+                </svg>`
+            },
+            {
+                id: 'grape',
+                name: '紫晶葡萄',
+                juiceColor: '#a855f7',
+                bgTint: 'linear-gradient(180deg, #faf5ff 0%, #f3e8ff 100%)',
+                svg: `<svg viewBox="0 0 64 64" class="w-10 h-10 sm:w-11 sm:h-11 fruit-icon drop-shadow">
+                    <path d="M32 16 L32 7 M32 11 C38 7 44 10 42 15" stroke="#15803d" stroke-width="3.2" stroke-linecap="round" fill="none"/>
+                    <circle cx="22" cy="24" r="8" fill="#9333ea" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="42" cy="24" r="8" fill="#9333ea" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="32" cy="23" r="8.5" fill="#a855f7" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="19" cy="35" r="8" fill="#9333ea" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="45" cy="35" r="8" fill="#9333ea" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="32" cy="35" r="8.5" fill="#a855f7" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="26" cy="45" r="8" fill="#9333ea" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="38" cy="45" r="8" fill="#a855f7" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="32" cy="53" r="7.5" fill="#c084fc" stroke="#581c87" stroke-width="1.8"/>
+                    <circle cx="29" cy="21" r="2" fill="#f3e8ff"/>
+                    <circle cx="29" cy="33" r="2" fill="#f3e8ff"/>
+                    <circle cx="30" cy="51" r="1.8" fill="#f3e8ff"/>
+                </svg>`
+            },
+            {
+                id: 'strawberry',
+                name: '奶油草莓',
+                juiceColor: '#ec4899',
+                bgTint: 'linear-gradient(180deg, #fff1f2 0%, #ffe4e6 100%)',
+                svg: `<svg viewBox="0 0 64 64" class="w-10 h-10 sm:w-11 sm:h-11 fruit-icon drop-shadow">
+                    <path d="M16 25 C14 38 23 55 32 57 C41 55 50 38 48 25 C46 16 18 16 16 25 Z" fill="#f43f5e" stroke="#9f1239" stroke-width="2.2"/>
+                    <path d="M19 18 C25 14 29 21 32 21 C35 21 39 14 45 18 C41 24 36 25 32 26 C28 25 23 24 19 18 Z" fill="#22c55e" stroke="#14532d" stroke-width="1.8" stroke-linejoin="round"/>
+                    <path d="M32 10 L32 19" stroke="#15803d" stroke-width="3.5" stroke-linecap="round"/>
+                    <circle cx="25" cy="31" r="1.5" fill="#fef08a"/>
+                    <circle cx="33" cy="30" r="1.5" fill="#fef08a"/>
+                    <circle cx="40" cy="32" r="1.5" fill="#fef08a"/>
+                    <circle cx="22" cy="39" r="1.5" fill="#fef08a"/>
+                    <circle cx="29" cy="39" r="1.5" fill="#fef08a"/>
+                    <circle cx="37" cy="40" r="1.5" fill="#fef08a"/>
+                    <circle cx="27" cy="47" r="1.5" fill="#fef08a"/>
+                    <circle cx="35" cy="47" r="1.5" fill="#fef08a"/>
+                    <circle cx="32" cy="52" r="1.5" fill="#fef08a"/>
+                </svg>`
+            }
+        ];
+
+        const KNIFE_SVGS = {
+            paring: `<svg viewBox="0 0 48 48" class="w-8 h-8 drop-shadow">
+                <path d="M9 39 L19 29 L15 25 L5 35 C3 37 7 41 9 39 Z" fill="#ea580c" stroke="#7c2d12" stroke-width="2"/>
+                <path d="M16 26 L42 6 C44 12 37 22 20 30 Z" fill="#e2e8f0" stroke="#475569" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M19 28 L40 9" stroke="#ffffff" stroke-width="1.5"/>
+            </svg>`,
+            cleaver: `<svg viewBox="0 0 48 48" class="w-8 h-8 drop-shadow">
+                <path d="M6 36 L16 26 L20 30 L10 40 C8 42 4 38 6 36 Z" fill="#92400e" stroke="#451a03" stroke-width="2"/>
+                <path d="M15 25 L34 6 L44 16 L25 35 Z" fill="#cbd5e1" stroke="#334155" stroke-width="2" stroke-linejoin="round"/>
+                <circle cx="34" cy="13" r="2.2" fill="#475569"/>
+                <path d="M24 34 L43 15" stroke="#ffffff" stroke-width="2"/>
+            </svg>`,
+            katana: `<svg viewBox="0 0 48 48" class="w-8 h-8 drop-shadow">
+                <path d="M8 40 L40 8" stroke="#e2e8f0" stroke-width="4" stroke-linecap="round"/>
+                <path d="M8 40 L16 32" stroke="#dc2626" stroke-width="5" stroke-linecap="round"/>
+                <path d="M13 29 L19 35" stroke="#facc15" stroke-width="3" stroke-linecap="round"/>
+                <path d="M40 40 L8 8" stroke="#f8fafc" stroke-width="4" stroke-linecap="round"/>
+                <path d="M40 40 L32 32" stroke="#2563eb" stroke-width="5" stroke-linecap="round"/>
+                <path d="M35 29 L29 35" stroke="#facc15" stroke-width="3" stroke-linecap="round"/>
+            </svg>`
+        };
+
+        document.getElementById('iconParing').innerHTML = KNIFE_SVGS.paring;
+        document.getElementById('iconCleaver').innerHTML = KNIFE_SVGS.cleaver;
+        document.getElementById('iconKatana').innerHTML = KNIFE_SVGS.katana;
+
+        /**************************************************************
+         * 2. Web Audio API 音乐与刀切爆汁音效合成器（零外部音频依赖）
+         **************************************************************/
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.bgmEnabled = true;
+                this.bgmTimer = null;
+                this.noteIndex = 0;
+                // 欢快魔性的果园风五声调式旋律
+                this.melody = [
+                    523.25, 659.25, 783.99, 659.25, 880.00, 783.99, 659.25, 587.33,
+                    523.25, 587.33, 659.25, 783.99, 659.25, 587.33, 523.25, 392.00,
+                    440.00, 523.25, 659.25, 523.25, 587.33, 659.25, 783.99, 880.00,
+                    1046.50, 880.00, 783.99, 659.25, 587.33, 659.25, 523.25, 523.25
+                ];
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            startBGM() {
+                this.init();
+                if (this.bgmTimer || !this.bgmEnabled) return;
+                this.bgmTimer = setInterval(() => {
+                    if (!this.bgmEnabled || !this.ctx || this.ctx.state !== 'running') return;
+                    const freq = this.melody[this.noteIndex % this.melody.length];
+                    this.playMarimbaNote(freq, 0.16, 0.045);
+                    // 低音伴奏拍
+                    if (this.noteIndex % 2 === 0) {
+                        this.playMarimbaNote(freq / 2, 0.22, 0.03);
+                    }
+                    this.noteIndex++;
+                }, 235);
+            }
+
+            stopBGM() {
+                if (this.bgmTimer) {
+                    clearInterval(this.bgmTimer);
+                    this.bgmTimer = null;
+                }
+            }
+
+            toggleBGM() {
+                this.init();
+                this.bgmEnabled = !this.bgmEnabled;
+                if (this.bgmEnabled) {
+                    this.startBGM();
+                } else {
+                    this.stopBGM();
+                }
+                return this.bgmEnabled;
+            }
+
+            playMarimbaNote(freq, duration = 0.18, vol = 0.05) {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(vol, now);
+                gain.gain.exponentialRampToValueAtTime(0.0008, now + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+
+            // 点击卡牌清脆拔起声
+            playPick() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(360, now);
+                osc.frequency.exponentialRampToValueAtTime(760, now + 0.09);
+                gain.gain.setValueAtTime(0.16, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+
+            // 三消时的刀切爆汁声
+            playSliceMatch() {
+                this.init();
+                const now = this.ctx.currentTime;
+                // 刀锋破空声
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(920, now);
+                osc.frequency.exponentialRampToValueAtTime(220, now + 0.15);
+                gain.gain.setValueAtTime(0.14, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.16);
+
+                // 清脆三连音爆汁感
+                [587.33, 783.99, 1046.5].forEach((f, idx) => {
+                    setTimeout(() => this.playMarimbaNote(f, 0.18, 0.14), idx * 55);
+                });
+            }
+
+            // 刀具挥砍金属音效
+            playKnifeSkill() {
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(1400, now);
+                osc.frequency.exponentialRampToValueAtTime(320, now + 0.22);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.24);
+            }
+
+            playWin() {
+                this.init();
+                [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((f, i) => {
+                    setTimeout(() => this.playMarimbaNote(f, 0.32, 0.16), i * 95);
+                });
+            }
+
+            playLose() {
+                this.init();
+                [440, 392, 349.23, 293.66].forEach((f, i) => {
+                    setTimeout(() => this.playMarimbaNote(f, 0.35, 0.16), i * 130);
+                });
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        /**************************************************************
+         * 3. 五个烧脑关卡生成器（从100%秒过到羊了个羊第二关级绝望）
+         * 坐标系采用 0 ~ 6 的网格坐标（支持 0.5 半格错位叠压 与 0.12 盲盒微偏移）
+         **************************************************************/
+        const LEVEL_META = {
+            1: {
+                name: '第1关：果园初体验',
+                tag: '新手秒过 · 18张',
+                tagClass: 'bg-emerald-600',
+                tools: { paring: 2, cleaver: 2, katana: 2 }
+            },
+            2: {
+                name: '第2关：双塔迷阵',
+                tag: '初探盲盒 · 45张',
+                tagClass: 'bg-sky-600',
+                tools: { paring: 2, cleaver: 2, katana: 2 }
+            },
+            3: {
+                name: '第3关：回字果盘',
+                tag: '步步为营 · 81张',
+                tagClass: 'bg-amber-600',
+                tools: { paring: 2, cleaver: 2, katana: 2 }
+            },
+            4: {
+                name: '第4关：深渊果篮',
+                tag: '硬核烧脑 · 135张',
+                tagClass: 'bg-orange-600',
+                tools: { paring: 2, cleaver: 2, katana: 2 }
+            },
+            5: {
+                name: '第5关：地狱果王',
+                tag: '通关率0.01% · 240张',
+                tagClass: 'bg-red-700 animate-pulse',
+                tools: { paring: 1, cleaver: 1, katana: 1 }
+            }
+        };
+
+        function generateLevelPositions(level) {
+            const positions = []; // { gx, gy, z, isMysteryStack }
+
+            if (level === 1) {
+                // 第1关：18张（6组），2层整齐对称平铺，100%有手就行
+                for (let r = 1; r <= 3; r++) {
+                    for (let c = 1; c <= 4; c++) {
+                        positions.push({ gx: c + 0.5, gy: r + 0.5, z: 0 });
+                    }
+                }
+                // 第2层6张居中半格叠放
+                for (let r = 1.5; r <= 2.5; r += 1) {
+                    for (let c = 1.5; c <= 3.5; c += 1) {
+                        positions.push({ gx: c + 0.5, gy: r + 0.5, z: 1 });
+                    }
+                }
+            } else if (level === 2) {
+                // 第2关：45张（15组），4层双子塔交错 + 底部左右各5张小盲盒
+                for (let z = 0; z < 3; z++) {
+                    const offset = (z % 2) * 0.5;
+                    for (let r = 0.5; r <= 2.5; r += 1) {
+                        for (let c = 0.5; c <= 1.5; c += 1) {
+                            positions.push({ gx: c + offset, gy: r + offset, z });
+                            positions.push({ gx: c + 3 + offset, gy: r + offset, z });
+                        }
+                    }
+                }
+                // 顶层封顶 3 张
+                positions.push({ gx: 1.25, gy: 1.75, z: 4 });
+                positions.push({ gx: 3.0, gy: 1.75, z: 4 });
+                positions.push({ gx: 4.75, gy: 1.75, z: 4 });
+                // 左右盲盒各 3 张（共6张）
+                for (let i = 0; i < 3; i++) {
+                    positions.push({ gx: 0.6 + i * 0.14, gy: 4.6, z: 10 + i, isMysteryStack: true });
+                    positions.push({ gx: 5.4 - i * 0.14, gy: 4.6, z: 10 + i, isMysteryStack: true });
+                }
+            } else if (level === 3) {
+                // 第3关：81张（27组），7层中空回字形高塔 + 底部盲盒
+                // 外圈回字 3 层 (每层16张 = 48张)
+                for (let z = 0; z < 3; z++) {
+                    const shift = (z % 2) * 0.35;
+                    for (let r = 0; r < 5; r++) {
+                        for (let c = 0; c < 5; c++) {
+                            if (r === 0 || r === 4 || c === 0 || c === 4) {
+                                positions.push({ gx: c + 0.8 + shift, gy: r + 0.2 + shift, z });
+                            }
+                        }
+                    }
+                }
+                // 中心高塔 3 层 (每层4张 = 12张)
+                for (let z = 3; z < 6; z++) {
+                    const shift = (z % 2) * 0.5;
+                    for (let r = 1.5; r <= 2.5; r++) {
+                        for (let c = 1.5; c <= 2.5; c++) {
+                            positions.push({ gx: c + 0.8 + shift, gy: r + 0.2 + shift, z });
+                        }
+                    }
+                }
+                // 塔尖 3 张
+                positions.push({ gx: 3.0, gy: 1.8, z: 7 });
+                positions.push({ gx: 2.5, gy: 2.6, z: 8 });
+                positions.push({ gx: 3.5, gy: 2.6, z: 8 });
+                // 底部左右深盲盒各9张 (18张)
+                for (let i = 0; i < 9; i++) {
+                    positions.push({ gx: 0.5 + i * 0.13, gy: 5.15, z: 20 + i, isMysteryStack: true });
+                    positions.push({ gx: 5.5 - i * 0.13, gy: 5.15, z: 20 + i, isMysteryStack: true });
+                }
+            } else if (level === 4) {
+                // 第4关：135张（45组），11层奇偶半格紧密交错 + 双侧深渊盲盒
+                // 核心区 9 层 (9 * 12 = 108张)
+                for (let z = 0; z < 9; z++) {
+                    const offX = (z % 2) * 0.5;
+                    const offY = ((z + 1) % 2) * 0.5;
+                    for (let r = 0; r < 3; r++) {
+                        for (let c = 0; c < 4; c++) {
+                            positions.push({
+                                gx: 1.0 + c * 1.05 + offX,
+                                gy: 0.4 + r * 1.05 + offY,
+                                z
+                            });
+                        }
+                    }
+                }
+                // 顶部交叉锁死层 3张
+                positions.push({ gx: 2.2, gy: 1.6, z: 10 });
+                positions.push({ gx: 3.0, gy: 2.2, z: 11 });
+                positions.push({ gx: 3.8, gy: 1.6, z: 10 });
+                // 左右无底盲盒各12张 (24张)
+                for (let i = 0; i < 12; i++) {
+                    positions.push({ gx: 0.4 + i * 0.11, gy: 4.95, z: 30 + i, isMysteryStack: true });
+                    positions.push({ gx: 5.6 - i * 0.11, gy: 4.95, z: 30 + i, isMysteryStack: true });
+                }
+            } else {
+                // 第5关：地狱果王（240张 = 80组），20层超高密度四重错位金字塔 + 四角绝望深渊盲盒
+                // 1. 中央炼狱15层交错叠压 (15 * 12 = 180张)
+                for (let z = 0; z < 15; z++) {
+                    const ox = (z % 3) * 0.38;
+                    const oy = ((z * 2) % 3) * 0.38;
+                    for (let r = 0; r < 3; r++) {
+                        for (let c = 0; c < 4; c++) {
+                            positions.push({
+                                gx: 0.95 + c * 1.0 + ox,
+                                gy: 0.35 + r * 1.0 + oy,
+                                z
+                            });
+                        }
+                    }
+                }
+                // 2. 顶部王冠连环死锁 12 张
+                for (let z = 15; z < 19; z++) {
+                    positions.push({ gx: 2.1 + (z % 2) * 0.5, gy: 1.3 + (z % 2) * 0.4, z });
+                    positions.push({ gx: 3.0, gy: 1.8, z: z + 1 });
+                    positions.push({ gx: 3.9 - (z % 2) * 0.5, gy: 2.3 - (z % 2) * 0.4, z });
+                }
+                // 3. 底部四个超深无底盲盒牌堆 (4 * 12 = 48张)，只露最顶上一张，底下全黑问号！
+                for (let i = 0; i < 12; i++) {
+                    // 左下盲盒堆
+                    positions.push({ gx: 0.25 + i * 0.08, gy: 5.05, z: 50 + i, isMysteryStack: true });
+                    // 中左盲盒堆
+                    positions.push({ gx: 2.05, gy: 4.55 + i * 0.06, z: 50 + i, isMysteryStack: true });
+                    // 中右盲盒堆
+                    positions.push({ gx: 3.95, gy: 4.55 + i * 0.06, z: 50 + i, isMysteryStack: true });
+                    // 右下盲盒堆
+                    positions.push({ gx: 5.75 - i * 0.08, gy: 5.05, z: 50 + i, isMysteryStack: true });
+                }
+            }
+
+            // 严格校验卡牌总数必须是 3 的倍数
+            const remainder = positions.length % 3;
+            if (remainder !== 0) {
+                for (let k = 0; k < 3 - remainder; k++) {
+                    positions.push({ gx: 2.5 + k * 0.5, gy: 1.5, z: 25 + k });
+                }
+            }
+
+            return positions;
+        }
+
+        /**************************************************************
+         * 4. 游戏核心状态机与交互逻辑
+         **************************************************************/
+        const state = {
+            currentLevel: 1,
+            tiles: [],          // 全部卡牌对象
+            slotIds: [],        // 底部7格木槽中的 tile.id
+            holdingIds: [],     // 水果刀切出的临时砧板区 tile.id
+            lastPickedId: null, // 支持主厨菜刀撤回最近一张点进卡槽的牌
+            tools: { paring: 2, cleaver: 2, katana: 2 },
+            revivedOnce: false,
+            isAnimating: false
+        };
+
+        const boardContainer = document.getElementById('boardContainer');
+        const slotTilesLayer = document.getElementById('slotTilesLayer');
+        const holdingArea = document.getElementById('holdingArea');
+        const holdingEmptyHint = document.getElementById('holdingEmptyHint');
+        const levelSelect = document.getElementById('levelSelect');
+
+        // 将网格坐标转换为棋盘像素坐标
+        function gridToPixel(gx, gy) {
+            const wrapperW = boardContainer.clientWidth || 350;
+            const tileW = window.innerWidth >= 400 ? 60 : 54;
+            const tileH = window.innerWidth >= 400 ? 68 : 62;
+            const stepX = (wrapperW - tileW - 12) / 6;
+            const stepY = 52;
+            return {
+                x: Math.round(6 + gx * stepX),
+                y: Math.round(4 + gy * stepY),
+                w: tileW,
+                h: tileH
+            };
+        }
+
+        // 生成卡牌图案序列（第5关加入恶意陷阱序列：故意让底层压住关键凑三消牌）
+        function createFruitDeck(totalCount, level) {
+            const triplets = totalCount / 3;
+            const deck = [];
+            for (let i = 0; i < triplets; i++) {
+                // 严格使用五种核心水果图案循环分配
+                const fruit = FRUITS[i % FRUITS.length];
+                deck.push(fruit, fruit, fruit);
+            }
+
+            // 随机洗牌
+            for (let i = deck.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [deck[i], deck[j]] = [deck[j], deck[i]];
+            }
+
+            // 第5关“地狱果王”额外增加错位打乱，使同种水果尽量分散在极端高低层，制造羊了个羊式卡槽死锁
+            if (level === 5) {
+                const buckets = [[], [], []];
+                deck.forEach((f, idx) => buckets[idx % 3].push(f));
+                return [...buckets[0], ...buckets[1], ...buckets[2]];
+            }
+            return deck;
+        }
+
+        // 启动指定关卡
+        function startLevel(levelNum) {
+            state.currentLevel = Number(levelNum);
+            levelSelect.value = String(state.currentLevel);
+            const meta = LEVEL_META[state.currentLevel];
+
+            document.getElementById('levelTitleBadge').textContent = meta.name;
+            const tagEl = document.getElementById('levelDiffTag');
+            tagEl.textContent = meta.tag;
+            tagEl.className = `text-[11px] font-black px-2 py-0.5 rounded-full text-white border border-white/60 shadow ${meta.tagClass}`;
+
+            state.slotIds = [];
+            state.holdingIds = [];
+            state.lastPickedId = null;
+            state.tools = { ...meta.tools };
+            state.revivedOnce = false;
+            state.isAnimating = false;
+
+            const rawPos = generateLevelPositions(state.currentLevel);
+            // 按层级从低到高排序，方便压牌分配
+            rawPos.sort((a, b) => a.z - b.z);
+            const deck = createFruitDeck(rawPos.length, state.currentLevel);
+
+            boardContainer.innerHTML = '';
+            state.tiles = rawPos.map((pos, idx) => {
+                const fruit = deck[idx];
+                const id = `tile_${idx}`;
+                const el = document.createElement('div');
+                el.className = 'fruit-tile';
+                el.style.background = fruit.bgTint;
+                el.style.zIndex = String(10 + pos.z);
+                el.innerHTML = fruit.svg;
+
+                const tileObj = {
+                    id,
+                    fruitId: fruit.id,
+                    juiceColor: fruit.juiceColor,
+                    gx: pos.gx,
+                    gy: pos.gy,
+                    z: pos.z,
+                    isMysteryStack: Boolean(pos.isMysteryStack),
+                    status: 'board', // 'board' | 'slot' | 'holding' | 'cleared'
+                    locked: false,
+                    el
+                };
+
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    onTileClick(tileObj, e);
+                });
+
+                boardContainer.appendChild(el);
+                return tileObj;
+            });
+
+            layoutBoardTiles();
+            updateAllStates();
+            hideModal();
+
+            if (state.currentLevel === 5) {
+                showToast('⚠️ 警告：第5关「地狱果王」已开启，全球通关率不足 0.01%！');
+            }
+        }
+
+        // 计算并定位棋盘上的所有卡牌
+        function layoutBoardTiles() {
+            state.tiles.forEach(t => {
+                if (t.status === 'board') {
+                    const rect = gridToPixel(t.gx, t.gy);
+                    t.x = rect.x;
+                    t.y = rect.y;
+                    t.w = rect.w;
+                    t.h = rect.h;
+                    t.el.style.left = `${rect.x}px`;
+                    t.el.style.top = `${rect.y}px`;
+                    t.el.style.zIndex = String(10 + t.z);
+                }
+            });
+        }
+
+        // 严格矩形重叠碰撞检测（AABB）：只要上层卡牌与下层卡牌存在重叠面积（留出4px圆角容差），下层即加锁置灰
+        function refreshBoardLocks() {
+            const boardTiles = state.tiles.filter(t => t.status === 'board');
+            const margin = 5; // 边缘圆角视觉容差
+
+            for (let i = 0; i < boardTiles.length; i++) {
+                const a = boardTiles[i];
+                let covered = false;
+                for (let j = 0; j < boardTiles.length; j++) {
+                    if (i === j) continue;
+                    const b = boardTiles[j];
+                    if (b.z > a.z) {
+                        const overlapX = Math.abs(a.x - b.x) < (a.w - margin);
+                        const overlapY = Math.abs(a.y - b.y) < (a.h - margin);
+                        if (overlapX && overlapY) {
+                            covered = true;
+                            break;
+                        }
+                    }
+                }
+                a.locked = covered;
+                a.el.classList.toggle('locked', covered);
+                a.el.classList.toggle('unlocked', !covered);
+                // 盲盒牌堆如果被压住，隐藏水果图案显示问号，只有露在最顶上的一张才揭晓图案
+                if (a.isMysteryStack) {
+                    a.el.classList.toggle('mystery-hidden', covered);
+                }
+            }
+        }
+
+        // 点击水果卡牌逻辑
+        function onTileClick(tile, event) {
+            sound.startBGM(); // 首次交互激活背景音乐
+            if (state.isAnimating) return;
+
+            if (tile.status === 'board') {
+                if (tile.locked) {
+                    // 被压住不可点，轻微抖动提示
+                    tile.el.animate([
+                        { transform: 'translateX(0px)' },
+                        { transform: 'translateX(-4px)' },
+                        { transform: 'translateX(4px)' },
+                        { transform: 'translateX(0px)' }
+                    ], { duration: 180 });
+                    return;
+                }
+                moveTileToSlot(tile, true);
+            } else if (tile.status === 'holding') {
+                // 从上方临时砧板区点入卡槽
+                state.holdingIds = state.holdingIds.filter(id => id !== tile.id);
+                moveTileToSlot(tile, false);
+            }
+        }
+
+        // 将水果移入底部7格卡槽（相同水果自动归类排在一起）
+        function moveTileToSlot(tile, fromBoard) {
+            if (state.slotIds.length >= 7) return;
+
+            sound.playPick();
+            tile.status = 'slot';
+            if (fromBoard) {
+                state.lastPickedId = tile.id;
+            }
+
+            // 查找卡槽中是否已有同类水果，若有则插在同类水果右侧
+            let insertIdx = state.slotIds.length;
+            for (let i = state.slotIds.length - 1; i >= 0; i--) {
+                const existing = getTileById(state.slotIds[i]);
+                if (existing && existing.fruitId === tile.fruitId) {
+                    insertIdx = i + 1;
+                    break;
+                }
+            }
+            state.slotIds.splice(insertIdx, 0, tile.id);
+
+            updateAllStates();
+            checkThreeMatch(tile.fruitId);
+        }
+
+        // 检查并触发3消刀光爆汁特效
+        function checkThreeMatch(fruitId) {
+            const matchedIds = state.slotIds.filter(id => {
+                const t = getTileById(id);
+                return t && t.fruitId === fruitId;
+            });
+
+            if (matchedIds.length >= 3) {
+                state.isAnimating = true;
+                const toClear = matchedIds.slice(0, 3);
+
+                setTimeout(() => {
+                    sound.playSliceMatch();
+
+                    // 获取消除卡牌的屏幕坐标，生成刀光与汁水粒子
+                    toClear.forEach((id, idx) => {
+                        const t = getTileById(id);
+                        if (t && t.el) {
+                            const rect = t.el.getBoundingClientRect();
+                            const cx = rect.left + rect.width / 2;
+                            const cy = rect.top + rect.height / 2;
+                            if (idx === 1) {
+                                spawnBladeSlash(cx - 75, cy, 150, -18);
+                            }
+                            spawnJuiceSplash(cx, cy, t.juiceColor);
+                        }
+                        if (t) {
+                            t.status = 'cleared';
+                            t.el.remove();
+                        }
+                    });
+
+                    state.slotIds = state.slotIds.filter(id => !toClear.includes(id));
+                    if (toClear.includes(state.lastPickedId)) {
+                        state.lastPickedId = null;
+                    }
+
+                    state.isAnimating = false;
+                    updateAllStates();
+                    checkEndCondition();
+                }, 170);
+            } else {
+                checkEndCondition();
+            }
+        }
+
+        // 检查过关或卡槽满7格失败
+        function checkEndCondition() {
+            const remainTotal = state.tiles.filter(t => t.status !== 'cleared').length;
+            if (remainTotal === 0) {
+                sound.playWin();
+                showResultModal(true);
+                return;
+            }
+
+            if (state.slotIds.length >= 7) {
+                sound.playLose();
+                showResultModal(false);
+            }
+        }
+
+        /**************************************************************
+         * 5. 三把定制刀具道具功能实现
+         **************************************************************/
+        // 道具1：水果刀（将卡槽中前3张水果切出到上方临时砧板区）
+        document.getElementById('toolParingBtn').addEventListener('click', () => {
+            sound.startBGM();
+            if (state.isAnimating) return;
+            if (state.tools.paring <= 0) {
+                showToast('🔪 水果刀次数已用完！');
+                return;
+            }
+            if (state.slotIds.length === 0) {
+                showToast('🔪 卡槽是空的，还不需要水果刀哦！');
+                return;
+            }
+
+            sound.playKnifeSkill();
+            state.tools.paring--;
+
+            const cutCount = Math.min(3, state.slotIds.length);
+            const movedIds = state.slotIds.splice(0, cutCount);
+
+            // 刀光横切卡槽特效
+            const dockRect = document.getElementById('slotContainer').getBoundingClientRect();
+            spawnBladeSlash(dockRect.left + 20, dockRect.top + 28, 220, -8);
+
+            movedIds.forEach(id => {
+                const t = getTileById(id);
+                if (t) {
+                    t.status = 'holding';
+                    state.holdingIds.push(id);
+                }
+            });
+
+            if (movedIds.includes(state.lastPickedId)) {
+                state.lastPickedId = null;
+            }
+
+            showToast(`🔪 水果刀出鞘！已将 ${cutCount} 张水果切至上方临时砧板！`);
+            updateAllStates();
+        });
+
+        // 道具2：主厨菜刀（将最近点入卡槽的1张牌挑回棋盘原位）
+        document.getElementById('toolCleaverBtn').addEventListener('click', () => {
+            sound.startBGM();
+            if (state.isAnimating) return;
+            if (state.tools.cleaver <= 0) {
+                showToast('🔪 主厨菜刀次数已用完！');
+                return;
+            }
+            if (!state.lastPickedId || !state.slotIds.includes(state.lastPickedId)) {
+                showToast('🔪 当前没有可撤回的上一张棋盘卡牌！');
+                return;
+            }
+
+            const tile = getTileById(state.lastPickedId);
+            if (!tile) return;
+
+            sound.playKnifeSkill();
+            state.tools.cleaver--;
+
+            const rect = tile.el.getBoundingClientRect();
+            spawnBladeSlash(rect.left, rect.top + 20, 90, -35);
+
+            state.slotIds = state.slotIds.filter(id => id !== tile.id);
+            tile.status = 'board';
+            tile.el.className = 'fruit-tile';
+            boardContainer.appendChild(tile.el);
+            state.lastPickedId = null;
+
+            layoutBoardTiles();
+            updateAllStates();
+            showToast('🔪 主厨菜刀精准挑回上一张水果！');
+        });
+
+        // 道具3：忍者双刀（旋风乱切，将棋盘上所有未消除卡牌重新随机洗牌）
+        document.getElementById('toolKatanaBtn').addEventListener('click', () => {
+            sound.startBGM();
+            if (state.isAnimating) return;
+            if (state.tools.katana <= 0) {
+                showToast('⚔️ 忍者双刀次数已用完！');
+                return;
+            }
+            const boardTiles = state.tiles.filter(t => t.status === 'board');
+            if (boardTiles.length === 0) {
+                showToast('⚔️ 棋盘上已经没有卡牌可洗啦！');
+                return;
+            }
+
+            sound.playKnifeSkill();
+            state.tools.katana--;
+
+            // 双刀十字斩刀光
+            const bRect = boardContainer.getBoundingClientRect();
+            spawnBladeSlash(bRect.left + 30, bRect.top + 60, 290, 32);
+            spawnBladeSlash(bRect.left + 30, bRect.bottom - 80, 290, -32);
+
+            // 提取当前棋盘上所有卡牌的水果属性并打乱
+            const fruitPool = boardTiles.map(t => ({
+                fruitId: t.fruitId,
+                juiceColor: t.juiceColor,
+                bgTint: FRUITS.find(f => f.id === t.fruitId).bgTint,
+                svg: FRUITS.find(f => f.id === t.fruitId).svg
+            }));
+
+            for (let i = fruitPool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [fruitPool[i], fruitPool[j]] = [fruitPool[j], fruitPool[i]];
+            }
+
+            boardTiles.forEach((t, idx) => {
+                const nextFruit = fruitPool[idx];
+                t.fruitId = nextFruit.fruitId;
+                t.juiceColor = nextFruit.juiceColor;
+                t.el.style.background = nextFruit.bgTint;
+                t.el.innerHTML = nextFruit.svg;
+                t.el.classList.remove('shuffling');
+                void t.el.offsetWidth;
+                t.el.classList.add('shuffling');
+            });
+
+            updateAllStates();
+            showToast('⚔️ 忍者双刀旋风乱切！全场水果已重新洗牌！');
+        });
+
+        /**************************************************************
+         * 6. 界面同步渲染与特效生成
+         **************************************************************/
+        function getTileById(id) {
+            return state.tiles.find(t => t.id === id);
+        }
+
+        function updateAllStates() {
+            refreshBoardLocks();
+
+            // 1. 渲染底部7格卡槽
+            slotTilesLayer.innerHTML = '';
+            for (let i = 0; i < 7; i++) {
+                const cellWrap = document.createElement('div');
+                cellWrap.className = 'w-full h-[56px] flex items-center justify-center';
+                const tileId = state.slotIds[i];
+                if (tileId) {
+                    const t = getTileById(tileId);
+                    if (t) {
+                        t.el.className = 'fruit-tile slot-tile unlocked';
+                        cellWrap.appendChild(t.el);
+                    }
+                }
+                slotTilesLayer.appendChild(cellWrap);
+            }
+
+            // 2. 渲染上方临时砧板区
+            holdingArea.innerHTML = '';
+            if (state.holdingIds.length === 0) {
+                holdingArea.appendChild(holdingEmptyHint);
+            } else {
+                state.holdingIds.forEach(id => {
+                    const t = getTileById(id);
+                    if (t) {
+                        t.el.className = 'fruit-tile holding-tile unlocked';
+                        holdingArea.appendChild(t.el);
+                    }
+                });
+            }
+
+            // 3. 更新顶部剩余数量与卡槽计数
+            const remain = state.tiles.filter(t => t.status !== 'cleared').length;
+            document.getElementById('remainCount').textContent = String(remain);
+            document.getElementById('slotUsageText').textContent = `${state.slotIds.length}/7`;
+
+            // 4. 更新刀具角标状态
+            document.getElementById('badgeParing').textContent = String(state.tools.paring);
+            document.getElementById('badgeCleaver').textContent = String(state.tools.cleaver);
+            document.getElementById('badgeKatana').textContent = String(state.tools.katana);
+
+            document.getElementById('toolParingBtn').disabled = state.tools.paring <= 0;
+            document.getElementById('toolCleaverBtn').disabled = state.tools.cleaver <= 0;
+            document.getElementById('toolKatanaBtn').disabled = state.tools.katana <= 0;
+        }
+
+        // 生成刀光特效
+        function spawnBladeSlash(x, y, width, angleDeg) {
+            const slash = document.createElement('div');
+            slash.className = 'blade-slash';
+            slash.style.left = `${x}px`;
+            slash.style.top = `${y}px`;
+            slash.style.width = `${width}px`;
+            slash.style.setProperty('--angle', `${angleDeg}deg`);
+            document.body.appendChild(slash);
+            setTimeout(() => slash.remove(), 300);
+        }
+
+        // 生成水果汁水飞溅粒子
+        function spawnJuiceSplash(x, y, color) {
+            for (let i = 0; i < 10; i++) {
+                const p = document.createElement('div');
+                p.className = 'juice-particle';
+                const size = 6 + Math.random() * 8;
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 25 + Math.random() * 55;
+                p.style.width = `${size}px`;
+                p.style.height = `${size}px`;
+                p.style.left = `${x}px`;
+                p.style.top = `${y}px`;
+                p.style.backgroundColor = color;
+                p.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+                p.style.setProperty('--ty', `${Math.sin(angle) * dist}px`);
+                document.body.appendChild(p);
+                setTimeout(() => p.remove(), 560);
+            }
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const box = document.getElementById('toastBox');
+            box.textContent = msg;
+            box.style.opacity = '1';
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                box.style.opacity = '0';
+            }, 2200);
+        }
+
+        // 显示通关/失败弹窗
+        function showResultModal(isWin) {
+            const modal = document.getElementById('resultModal');
+            const emoji = document.getElementById('modalEmoji');
+            const title = document.getElementById('modalTitle');
+            const desc = document.getElementById('modalDesc');
+            const primaryBtn = document.getElementById('modalPrimaryBtn');
+            const reviveBtn = document.getElementById('modalReviveBtn');
+            const secondaryBtn = document.getElementById('modalSecondaryBtn');
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            if (isWin) {
+                emoji.textContent = state.currentLevel === 5 ? '👑' : '🍉';
+                if (state.currentLevel < 5) {
+                    title.textContent = `第${state.currentLevel}关 完美切盘！`;
+                    desc.textContent = state.currentLevel === 1
+                        ? '热身完毕！接下来的关卡将开始出现盲盒与多层遮挡陷阱，准备好你的刀具了吗？'
+                        : `太强了！你已击败第${state.currentLevel}关，下一关难度将成倍飙升！`;
+                    primaryBtn.textContent = `挑战第 ${state.currentLevel + 1} 关`;
+                    primaryBtn.classList.remove('hidden');
+                    primaryBtn.onclick = () => startLevel(state.currentLevel + 1);
+                } else {
+                    title.textContent = '神迹降临！果王登基！';
+                    desc.textContent = '不可思议！你竟然通关了设计为无人能过的第5关「地狱果王」！你就是万里挑一的刀锋果神！';
+                    primaryBtn.textContent = '再来一局地狱果王';
+                    primaryBtn.classList.remove('hidden');
+                    primaryBtn.onclick = () => startLevel(5);
+                }
+                reviveBtn.classList.add('hidden');
+                secondaryBtn.textContent = '重玩本关';
+                secondaryBtn.onclick = () => startLevel(state.currentLevel);
+            } else {
+                emoji.textContent = '😭';
+                title.textContent = '砧板已满，惜败！';
+                const remain = state.tiles.filter(t => t.status !== 'cleared').length;
+                desc.textContent = state.currentLevel === 5
+                    ? `还剩 ${remain} 张水果未消除！第5关「地狱果王」深不可测，别灰心，试试磨刀复活或换个开局策略！`
+                    : `仅差 ${remain} 张水果就能通关了！用一把水果刀切出卡槽前3张即可继续战斗！`;
+
+                primaryBtn.classList.add('hidden');
+                reviveBtn.classList.remove('hidden');
+                reviveBtn.onclick = () => {
+                    // 趣味原地磨刀复活：将卡槽前3张移到临时砧板，并各补充1次刀具
+                    sound.playKnifeSkill();
+                    const cutIds = state.slotIds.splice(0, Math.min(3, state.slotIds.length));
+                    cutIds.forEach(id => {
+                        const t = getTileById(id);
+                        if (t) {
+                            t.status = 'holding';
+                            state.holdingIds.push(id);
+                        }
+                    });
+                    state.tools.paring += 1;
+                    state.tools.cleaver += 1;
+                    state.tools.katana += 1;
+                    hideModal();
+                    updateAllStates();
+                    showToast('✨ 磨刀复活成功！已移出前3张牌并补充全套刀具！');
+                };
+
+                secondaryBtn.textContent = '重新挑战本关';
+                secondaryBtn.onclick = () => startLevel(state.currentLevel);
+            }
+        }
+
+        function hideModal() {
+            const modal = document.getElementById('resultModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        /**************************************************************
+         * 7. 顶部控制栏事件绑定与响应式重绘
+         **************************************************************/
+        levelSelect.addEventListener('change', (e) => {
+            sound.startBGM();
+            startLevel(Number(e.target.value));
+        });
+
+        document.getElementById('restartTopBtn').addEventListener('click', () => {
+            sound.startBGM();
+            sound.playKnifeSkill();
+            startLevel(state.currentLevel);
+            showToast(`🔄 已重新洗牌开启第 ${state.currentLevel} 关`);
+        });
+
+        document.getElementById('musicToggleBtn').addEventListener('click', () => {
+            const isOn = sound.toggleBGM();
+            document.getElementById('musicIcon').textContent = isOn ? '🎵' : '🔇';
+            showToast(isOn ? '🎵 背景音乐已开启' : '🔇 背景音乐已静音');
+        });
+
+        window.addEventListener('resize', () => {
+            layoutBoardTiles();
+            refreshBoardLocks();
+        });
+
+        // 页面加载完成后立即初始化第1关
+        window.onload = () => {
+            startLevel(1);
+        };
+    </script>
+</body>
+</html>
